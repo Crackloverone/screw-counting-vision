@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>螺丝计数系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #4a4a4a;
+            --secondary: #6c757d;
+            --bg: #f5f5f5;
+            --card: #ffffff;
+        }
+        body {
+            background: var(--bg);
+            font-family: 'Segoe UI', sans-serif;
+            min-height: 100vh;
+        }
+        .navbar {
+            background: var(--card);
+            border-bottom: 1px solid #dee2e6;
+        }
+        .card {
+            background: var(--card);
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+        }
+        .video-container {
+            background: #f0f0f0;
+            border-radius: 8px;
+            min-height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .video-placeholder {
+            color: #999;
+            font-size: 1.2rem;
+        }
+        .result-box {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .count-number {
+            font-size: 4rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi bi Screw"></i> 螺丝计数系统
+            </a>
+        </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+        <div class="row">
+            <!-- 左侧控制面板 -->
+            <div class="col-md-4">
+                <!-- 数据源选择 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-camera"></i> 数据源
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">选择数据源</label>
+                            <select class="form-select" id="sourceType" onchange="toggleSource()">
+                                <option value="hikvision" selected>海康相机</option>
+                                <option value="camera">USB 相机</option>
+                                <option value="upload">上传图片</option>
+                            </select>
+                        </div>
+                        
+                        <!-- USB 相机选项 -->
+                        <div id="usbOptions">
+                            <div class="mb-3">
+                                <label class="form-label">选择相机</label>
+                                <select class="form-select" id="cameraSelect">
+                                </select>
+                            </div>
+                            <button class="btn btn-success w-100 mb-2" onclick="openCamera()">
+                                <i class="bi bi-play"></i> 打开相机
+                            </button>
+                            <button class="btn btn-danger w-100" onclick="closeCamera()">
+                                <i class="bi bi-stop"></i> 关闭相机
+                            </button>
+                        </div>
+                        
+                        <!-- 海康相机选项 -->
+                        <div id="hikOptions" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">相机 IP 地址</label>
+                                <input type="text" class="form-control" id="hikIP" placeholder="192.168.1.64">
+                            </div>
+                            <button class="btn btn-primary w-100 mb-2" onclick="connectHik()">
+                                <i class="bi bi-link"></i> 连接海康相机
+                            </button>
+                        </div>
+                        
+                        <!-- 上传图片选项 -->
+                        <div id="uploadOptions" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">选择图片</label>
+                                <input type="file" class="form-control" id="imageUpload" accept="image/*">
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="uploadImage()">
+                                <i class="bi bi-upload"></i> 上传并计数
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 模型选择 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <i class="bi bi-cpu"></i> 模型选择
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">选择模型</label>
+                            <select class="form-select" id="modelSelect">
+                                <option value="">-- 选择模型 --</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="loadModel()">
+                            <i class="bi bi-download"></i> 加载模型
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 参数设置 -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="bi bi-sliders"></i> 参数设置
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">置信度阈值: <span id="confVal">0.25</span></label>
+                            <input type="range" class="form-range" id="confRange" min="0.1" max="0.9" step="0.05" value="0.25" oninput="document.getElementById('confVal').textContent=this.value">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">检测间隔帧: <span id="intervalVal">3</span></label>
+                            <input type="range" class="form-range" id="intervalRange" min="1" max="10" value="3" oninput="document.getElementById('intervalVal').textContent=this.value">
+                        </div>
+                        <button class="btn btn-warning w-100" onclick="applyDetectionSettings()">
+                            <i class="bi bi-check-circle"></i> 应用参数
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 右侧显示区域 -->
+            <div class="col-md-8">
+                <!-- 视频/图片显示 -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between">
+                        <span>图像预览</span>
+                        <button class="btn btn-primary btn-sm" id="countBtn" onclick="countScrews()" disabled>
+                            <i class="bi bi-calculator"></i> 开始计数
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="video-container" id="videoContainer">
+                            <div class="video-placeholder" id="placeholder">
+                                <i class="bi bi-camera-video-off" style="font-size: 4rem;"></i>
+                                <p>点击"打开相机"或"上传图片"开始</p>
+                            </div>
+                            <img id="videoStream" style="display: none; max-width: 100%;">
+                            <img id="imageDisplay" style="display: none; max-width: 100%;">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 计数结果 -->
+                <div class="result-box">
+                    <h5>螺丝数量</h5>
+                    <div class="count-number" id="countResult">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cameraOpened = false;
+        let currentImagePath = '';
+        
+        // ==================== 初始化 ====================
+        window.onload = function() {
+            loadModels();
+            scanCameras();
+        };
+        
+        // ==================== 数据源切换 ====================
+        function toggleSource() {
+            const type = document.getElementById('sourceType').value;
+            document.getElementById('usbOptions').style.display = type === 'camera' ? 'block' : 'none';
+            document.getElementById('hikOptions').style.display = type === 'hikvision' ? 'block' : 'none';
+            document.getElementById('uploadOptions').style.display = type === 'upload' ? 'block' : 'none';
+        }
+        
+        // ==================== 加载模型列表 ====================
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/models');
+                const models = await res.json();
+                const select = document.getElementById('modelSelect');
+                select.innerHTML = '<option value="">-- 选择模型 --</option>';
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.name;
+                    opt.textContent = m.name;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('加载模型失败:', e);
+            }
+        }
+        
+        // ==================== 扫描相机 ====================
+        async function scanCameras() {
+            try {
+                const res = await fetch('/api/cameras');
+                const cameras = await res.json();
+                const select = document.getElementById('cameraSelect');
+                select.innerHTML = '';
+                cameras.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.error('扫描相机失败:', e);
+            }
+        }
+        
+        // ==================== 加载模型 ====================
+        async function loadModel() {
+            const modelName = document.getElementById('modelSelect').value;
+            if (!modelName) {
+                alert('请选择模型');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/models', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({model: modelName})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('countBtn').disabled = false;
+                    alert('模型加载成功');
+                }
+            } catch (e) {
+                alert('模型加载失败');
+            }
+        }
+        
+        // ==================== 打开相机 ====================
+        async function openCamera() {
+            const index = document.getElementById('cameraSelect').value;
+            try {
+                const res = await fetch('/api/camera/open', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({type: 'usb', index: parseInt(index)})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    cameraOpened = true;
+                    document.getElementById('placeholder').style.display = 'none';
+                    document.getElementById('videoStream').style.display = 'block';
+                    document.getElementById('videoStream').src = '/video';
+                    document.getElementById('countBtn').disabled = false;
+                }
+            } catch (e) {
+                alert('打开相机失败');
+            }
+        }
+        
+        // ==================== 关闭相机 ====================
+        async function closeCamera() {
+            try {
+                await fetch('/api/camera/close', {method: 'POST'});
+                cameraOpened = false;
+                document.getElementById('placeholder').style.display = 'flex';
+                document.getElementById('videoStream').style.display = 'none';
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        // ==================== 连接海康相机 ====================
+        async function connectHik() {
+            const ip = document.getElementById('hikIP').value;
+            if (!ip) {
+                alert('请输入相机IP');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/camera/open', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({type: 'hikvision', ip: ip})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    cameraOpened = true;
+                    document.getElementById('placeholder').style.display = 'none';
+                    document.getElementById('videoStream').style.display = 'block';
+                    document.getElementById('videoStream').src = '/video';
+                    document.getElementById('countBtn').disabled = false;
+                    alert('相机连接成功！请等待2-3秒后再点击计数');
+                } else {
+                    alert('连接失败: ' + (data.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('连接失败: ' + e);
+            }
+        }
+        
+        // ==================== 上传图片 ====================
+        async function uploadImage() {
+            const file = document.getElementById('imageUpload').files[0];
+            if (!file) {
+                alert('请选择图片');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentImagePath = data.path;
+                    document.getElementById('placeholder').style.display = 'none';
+                    document.getElementById('imageDisplay').src = data.image;
+                    document.getElementById('imageDisplay').style.display = 'block';
+                    document.getElementById('countBtn').disabled = false;
+                } else {
+                    alert(data.error || '上传失败');
+                }
+            } catch (e) {
+                alert('上传失败');
+            }
+        }
+        
+        // ==================== 计数 ====================
+        async function countScrews() {
+            const sourceType = document.getElementById('sourceType').value;
+            let source = 'image';
+            let imagePath = '';
+            
+            // 支持 hikvision 和 camera
+            if ((sourceType === 'camera' || sourceType === 'hikvision') && cameraOpened) {
+                source = 'camera';
+            } else if (sourceType === 'upload' && currentImagePath) {
+                source = 'image';
+                imagePath = currentImagePath;
+            } else if ((sourceType === 'camera' || sourceType === 'hikvision') && !cameraOpened) {
+                alert('请先打开相机！');
+                return;
+            } else if (!currentImagePath) {
+                alert('请先上传图片！');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/count', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({source: source, image_path: imagePath})
+                });
+                const data = await res.json();
+                if (data.count !== undefined) {
+                    document.getElementById('countResult').textContent = data.count;
+                } else {
+                    alert(data.error || '计数失败');
+                }
+            } catch (e) {
+                alert('计数失败');
+            }
+        }
+        
+        function updateMinArea() {
+            document.getElementById('minAreaVal').textContent = document.getElementById('minArea').value;
+        }
+        
+        async function applyDetectionSettings() {
+            const confidence = parseFloat(document.getElementById('confRange').value);
+            const detect_interval = parseInt(document.getElementById('intervalRange').value);
+            
+            try {
+                const res = await fetch('/api/config/detection', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        confidence: confidence,
+                        detect_interval: detect_interval
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('参数已应用! 置信度: ' + confidence + ', 间隔: ' + detect_interval);
+                } else {
+                    alert('应用失败: ' + (data.error || ''));
+                }
+            } catch (e) {
+                alert('错误: ' + e);
+            }
+        }
+    </script>
+</body>
+</html>
